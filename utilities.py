@@ -63,7 +63,7 @@ class DataGenerator(object):
         y = self.mean_function(x)
         y += np.random.normal(0, self.noise, y.shape)
         return x, y
- 
+
 
 #####
 
@@ -73,6 +73,7 @@ class BayesianNN(object):
 
     def __init__(self):
         """
+
         """
         self.model = None
         self.trace = None
@@ -82,7 +83,7 @@ class BayesianNN(object):
         """
 
         if self.model is not None:
-            raise Exception("Overwriting previous fit fit.")
+            raise Exception("Overwriting previous fit.")
 
         input_dim = x.shape[1]
         output_dim = y.shape[1]
@@ -92,23 +93,23 @@ class BayesianNN(object):
         n_hidden = 3
         with pm.Model() as neural_network:
             # Weights from input to hidden layer
-            weights_in_1 = pm.Normal('w_in_1', 0, sd=1, shape=(input_dim, n_hidden))
-            weights_b_1 = pm.Normal('w_b_1', 0, sd=1, shape=(n_hidden))
+            weights_in_1 = pm.Normal('w_in_1', 0, sd=1, shape=(input_dim, n_hidden))#, testval=init_1)
+            weights_b_1 = pm.Normal('w_b_1', 0, sd=1, shape=(n_hidden))#, testval=init_b_1)
 
             # Weights from 1st to 2nd layer
-            weights_1_2 = pm.Normal('w_1_2', 0, sd=1, shape=(n_hidden, n_hidden))
-            weights_b_2 = pm.Normal('w_b_2', 0, sd=1, shape=(n_hidden))
+            weights_1_2 = pm.Normal('w_1_2', 0, sd=1, shape=(n_hidden, n_hidden))#, testval=init_2)
+            weights_b_2 = pm.Normal('w_b_2', 0, sd=1, shape=(n_hidden))#, testval=init_b_2)
 
             # Weights from hidden layer to output
-            weights_2_out = pm.Normal('w_2_out', 0, sd=1, shape=(n_hidden, output_dim))
-            weights_b_out = pm.Normal('w_b_out', 0, sd=1, shape=(output_dim))
+            weights_2_out = pm.Normal('w_2_out', 0, sd=1, shape=(n_hidden, output_dim))#, testval=init_out)
+            weights_b_out = pm.Normal('w_b_out', 0, sd=1, shape=(output_dim))#, testval=init_b_out)
 
             # Build neural-network using tanh activation function
             act_1 = pm.math.tanh(pm.math.dot(ann_input, weights_in_1) + weights_b_1)
             act_2 = pm.math.tanh(pm.math.dot(act_1, weights_1_2) + weights_b_2)
             act_out = pm.math.dot(act_2, weights_2_out) + weights_b_out
 
-            variance = pm.HalfNormal('uncertainty', sigma=10.0)
+            variance = pm.HalfNormal('uncertainty', sigma=3.0)
             out = pm.Normal('out', mu=act_out,
                             sigma=variance,
                             observed=ann_output)
@@ -118,9 +119,12 @@ class BayesianNN(object):
     def fit(self, x, y, num_iter=1000, VI=False):
         """
         """
+        x = x.astype("float32")
+        y = y.astype("float32")
         self._build_model(x, y)
 
         with self.model:
+
             if VI is False:
                 step = pm.NUTS()
                 trace = pm.sample(
@@ -131,14 +135,15 @@ class BayesianNN(object):
                     step=step
                 )
             elif VI is True:
-                approx = pm.fit(n=num_iter*10, method='svgd')
-                trace = approx.sample(draws=num_iter)
+                approx = pm.fit(n=10000, method='svgd')
+                trace = approx.sample(draws=20000)
 
         self.trace = trace
 
     def sample_posterior(self, x, samples):
         """
         """
+        x = x .astype("float32")
         trace = self.trace
         posterior_samples = trace['w_in_1'].shape[0]
         output = []
